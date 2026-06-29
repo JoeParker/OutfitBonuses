@@ -19,16 +19,51 @@ public class OutfitBonusesSystem extends ScriptableSystem {
     }
 
     public static func OutfitBonusDefinitions() -> array<OutfitBonus> = [
-        new OutfitBonus("CORPO", gamedataStatType.VendorBuyPriceDiscount, 1.2),
-        new OutfitBonus("STEALTH", gamedataStatType.Visibility, 0.8),
-        new OutfitBonus("CO", gamedataStatType.VendorSellPriceDiscount, 1.2)
+        // Generic outfit types
+        new OutfitBonus("CASUAL", gamedataStatType.StreetCredXPBonusMultiplier, 0.05),
+        new OutfitBonus("NIGHTCLUB", gamedataStatType.VendorBuyPriceDiscount, 0.2),
+        new OutfitBonus("SPORTY", gamedataStatType.StaminaRegenRate, 0.2),
+        new OutfitBonus("STEALTH", gamedataStatType.Visibility, -0.2),
+        new OutfitBonus("SNIPER", gamedataStatType.HeadshotDamageMultiplier, 0.25),
+        new OutfitBonus("ASSASSIN", gamedataStatType.AdditionalStealthDamage, 0.2),
+        new OutfitBonus("PSYCHO", gamedataStatType.MeleeDamagePercentBonus, 0.15),
+        new OutfitBonus("ARMOURED", gamedataStatType.ExplosionResistance, 0.5),
+        new OutfitBonus("BODYGUARD", gamedataStatType.MeleeResistance, 0.3),
+        new OutfitBonus("CYBER", gamedataStatType.MemoryRegenRate, 0.25),
+        new OutfitBonus("HACKER", gamedataStatType.MinigameMoneyMultiplier, 0.5),
+        new OutfitBonus("DRIVER", gamedataStatType.VehicleDamagePercentBonus, 0.5),
+        new OutfitBonus("AUGMENTED", gamedataStatType.StrengthSkillcheckBonus, 3.0),
+        new OutfitBonus("GEEK", gamedataStatType.TechnicalAbilitySkillcheckBonus, 3.0),
+
+        // Gang affiliations
+        new OutfitBonus("6TH STREET", gamedataStatType.GrenadeDamagePercentBonus, 0.4),
+        new OutfitBonus("ANIMAL", gamedataStatType.BerserkMeleeDamageBonus, 0.2),
+        new OutfitBonus("BARGHEST", gamedataStatType.MitigationStrength, 0.2),
+        new OutfitBonus("MAELSTROM", gamedataStatType.CyberwareRechargeSpeedBonus, 0.2),
+        new OutfitBonus("SCAVENGER", gamedataStatType.BonusPercentDamageToEnemiesBelowHalfHealth, 0.1),
+        new OutfitBonus("MOX", gamedataStatType.DodgeStaminaCostReduction, 0.25), 
+        new OutfitBonus("TYGER", gamedataStatType.CritDamage, 0.25), // or CritDamageBonus?
+        new OutfitBonus("VALENTINO", gamedataStatType.ReloadSpeedPercentBonus, 0.1),
+        new OutfitBonus("VOODOO", gamedataStatType.DamageReductionQuickhacks, 0.3),
+
+        // TTRPG roles
+        new OutfitBonus("ROCKER", gamedataStatType.CritChance, 0.1), // or CritChanceBonus?
+        new OutfitBonus("SOLO", gamedataStatType.BonusPercentDamageToEnemiesAtFullHealth, 0.1),
+        new OutfitBonus("NETRUNNER", gamedataStatType.BonusQuickHackDamage, 0.1), // or QuickHackDamageBonusMultiplier?
+        new OutfitBonus("TECHIE", gamedataStatType.DisassemblingIngredientsDoubleBonus, 0.5),
+        new OutfitBonus("MEDTECH", gamedataStatType.HealingItemsEffectPercentBonus, 0.2),
+        new OutfitBonus("MEDIA", gamedataStatType.IntelligenceSkillcheckBonus, 3.0),
+        new OutfitBonus("CORPO", gamedataStatType.VendorSellPriceDiscount, 0.2),
+        new OutfitBonus("COP", gamedataStatType.ADSSpeedPercentBonus, 0.2),
+        new OutfitBonus("FIXER", gamedataStatType.XPbonusMultiplier, 0.05),
+        new OutfitBonus("NOMAD", gamedataStatType.CarryCapacity, 0.1)
     ];
 }
 
 struct OutfitBonus {
     private let m_name: String;
     private let m_stat: gamedataStatType;
-    private let m_multiplier: Float;
+    private let m_additiveBonus: Float;
 }
 
 @addField(gameuiInventoryGameController)
@@ -36,17 +71,16 @@ private let m_outfitBonusesSystem: wref<OutfitBonusesSystem>;
 
 @wrapMethod(gameuiInventoryGameController)
 protected cb func OnInitialize() -> Bool {
+    // LogChannel(n"DEBUG", "gameuiInventoryGameController::OnInitialize");
     wrappedMethod();
 
     let game = this.m_player.GetGame();
     this.m_outfitBonusesSystem = OutfitBonusesSystem.GetInstance(game);
-
-    LogChannel(n"DEBUG", "gameuiInventoryGameController::OnInitialize");
 }
 
 @wrapMethod(gameuiInventoryGameController)
 protected cb func OnUninitialize() -> Bool {
-    LogChannel(n"DEBUG", "gameuiInventoryGameController::OnUninitialize");
+    // LogChannel(n"DEBUG", "gameuiInventoryGameController::OnUninitialize");
 
     let game = this.m_player.GetGame();
     let outfitSystem = OutfitSystem.GetInstance(game);
@@ -80,10 +114,11 @@ protected cb func OnUninitialize() -> Bool {
             ArrayPush(this.m_outfitBonusesSystem.m_activeBonuses, bonus);
 
             // let currentStatValue = GameInstance.GetStatsSystem(game).GetStatValue(Cast<StatsObjectID>(this.m_player.GetEntityID()), stat);
-            let statMod = RPGManager.CreateStatModifier(bonus.m_stat, gameStatModifierType.Multiplier, bonus.m_multiplier) as gameConstantStatModifierData;
+            let statMod = RPGManager.CreateStatModifier(bonus.m_stat, gameStatModifierType.Additive, bonus.m_additiveBonus) as gameConstantStatModifierData;
             statsSystem.AddModifier(Cast<StatsObjectID>(this.m_player.GetEntityID()), statMod);
         }
     }
+    
     // Message
     let bonusCount = ArraySize(this.m_outfitBonusesSystem.m_activeBonuses);
     if bonusCount > 0 {
@@ -105,8 +140,9 @@ protected cb func OnUninitialize() -> Bool {
 private static func ResetPreviousStatMods(activeBonuses: array<OutfitBonus>, statsSystem: ref<StatsSystem>, player: wref<PlayerPuppet>) {
     for bonus in activeBonuses {
         LogChannel(n"DEBUG", s"ResetBonus -> \(bonus.m_name)");
+        
         // let currentStatValue = GameInstance.GetStatsSystem(game).GetStatValue(Cast<StatsObjectID>(this.m_player.GetEntityID()), stat);
-        let statMod = RPGManager.CreateStatModifier(bonus.m_stat, gameStatModifierType.Multiplier, 1.0 / bonus.m_multiplier) as gameConstantStatModifierData;
+        let statMod = RPGManager.CreateStatModifier(bonus.m_stat, gameStatModifierType.Additive, -bonus.m_additiveBonus) as gameConstantStatModifierData;
         statsSystem.AddModifier(Cast<StatsObjectID>(player.GetEntityID()), statMod);
     }
 }
